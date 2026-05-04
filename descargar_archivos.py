@@ -4,7 +4,16 @@ from botocore.config import Config
 
 DATASET = "ds004362"
 BUCKET  = "openneuro.org"
-RUNS    = ["3", "4", "7", "8", "11", "12"]  # Task1 (real) + Task2 (imaginado)
+
+# ── Runs de tarea: aquí viven T0, T1 y T2 ─────────────────────
+RUNS_TAREA = ["3", "4", "7", "8", "11", "12"]
+
+# ── Extensiones a descargar ────────────────────────────────────
+# .set / .fdt → datos EEG (EEGLAB)
+# _events.tsv → tabla de eventos BIDS (MNE los usa para leer anotaciones)
+# _channels.tsv → nombres y tipos de canales (necesario para pick())
+EXTENSIONES = (".set", ".fdt", "_events.tsv", "_channels.tsv")
+
 DESTINO = "./data"
 
 s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
@@ -21,9 +30,13 @@ descargados, omitidos, errores = 0, 0, 0
 for key in listar_archivos(f"{DATASET}/"):
     filename = key.split("/")[-1]
 
-    if not any(f"run-{r}_eeg" in filename for r in RUNS):
+    # Debe pertenecer a un run de tarea
+    es_run_tarea = any(f"run-{r}_eeg" in filename for r in RUNS_TAREA)
+    if not es_run_tarea:
         continue
-    if not (filename.endswith(".set") or filename.endswith(".fdt")):
+
+    # Debe ser una extensión que nos interesa
+    if not any(filename.endswith(ext) for ext in EXTENSIONES):
         continue
 
     ruta_local = os.path.join(DESTINO, *key.split("/")[1:])
@@ -42,4 +55,4 @@ for key in listar_archivos(f"{DATASET}/"):
         print(f"[!] Error en {key}: {e}")
         errores += 1
 
-print(f"\n✓ {descargados} descargados | {omitidos} omitidos (ya existían) | {errores} errores")
+print(f"\n✓ {descargados} descargados | {omitidos} omitidos | {errores} errores")
